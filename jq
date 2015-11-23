@@ -43,13 +43,15 @@ sub queue {
     _log( 0, "[q $$] " . join(" ", @_) );
 
     db_lock();
-    while ($db->{LIMIT} <= $db->{running}) {
+    push @{ $db->{queued_pids} }, $$;
+    while (queue_full() or not my_turn()) {
         db_unlock();
-        _log( 0, "[w $$] sleep $sleep_time" );
+        _log( 1, "[w $$] $sleep_time" );
         sleep $sleep_time; $sleep_time %= 31; $sleep_time *= 2;
         db_lock();
     }
     # reserve our slot and get out
+    shift @{ $db->{queued_pids} };
     $db->{running}++;
     db_unlock();
 
@@ -57,7 +59,7 @@ sub queue {
     my $started = gen_ts();
     my ($rc, $es) = run($queued, @_);
     my $completed = gen_ts();
-    _log( 0, "[e $$] " . join(" ", @_) );
+    _log( 0, "[e $$] rc=$rc, es=$es" );
 
     db_lock();
     $db->{running}--;
@@ -72,6 +74,13 @@ sub queue {
     };
 
     db_unlock();
+}
+
+sub queue_full {
+    return $db->{LIMIT} <= $db->{running};
+}
+sub my_turn {
+    return $db->{queued_pids}->[0] == $$;
 }
 
 sub run {
