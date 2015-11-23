@@ -31,6 +31,8 @@ if ( $ARGV[0] eq '-t' ) {
     history(0); # print history, all jobs
 } elsif ( $ARGV[0] eq '-e' ) {
     history(1); # print history, failed jobs only
+} elsif ( $ARGV[0] eq '-purge' ) {
+    purge();
 } else {
     queue(@ARGV);
 }
@@ -135,6 +137,22 @@ sub history {
         say $_->{rc} . "\t" . $_->{es};
         say "";
     }
+}
+
+sub purge {
+    db_lock();
+    if ($db->{running}) {
+        db_unlock();
+        die "some jobs are still running";
+    }
+    my @d = glob "$BASE/d/*";
+    if (@d) {
+        db_unlock();
+        die "some job reports are still unread";
+    }
+
+    $db->{history} = [];
+    db_unlock();
 }
 
 # ----------------------------------------------------------------------
