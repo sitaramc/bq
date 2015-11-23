@@ -11,7 +11,7 @@ use Cwd;
 
 # for now, q size is 1 and each job is independent; no IPC
 
-die "need command to queue, or '-t', '-f', '-c', or '-e'" unless ( @ARGV and $ARGV[0] ne '-h' );
+usage() unless ( @ARGV and $ARGV[0] ne '-h' );
 
 # ----------------------------------------------------------------------
 # kinda sorta globals
@@ -179,3 +179,25 @@ sub _log {
     say STDERR "[" . gen_ts . "] $msg";
 }
 
+
+# ----------------------------------------------------------------------
+# usage
+
+sub usage {
+    say <DATA>;
+    exit 1;
+}
+
+__DATA__
+
+Usage: jq [-t|-f|-c|-e|-purge]
+       jq command [args]
+
+-t: "tail" running jobs stdout and stderr files (needs ftail program, to be
+    uploaded later)
+-f: "flush" completed jobs stdout and stderr files
+-c: show "completed" jobs
+-e: show jobs with "errors"
+
+-purge: purge everything (assuming no jobs are running and no outputs pending
+    flush)
