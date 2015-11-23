@@ -38,13 +38,14 @@ if ( $ARGV[0] eq '-t' ) {
 exit 0;
 
 sub queue {
-    chomp(my $queued = `date +%F.%T`);
+    my $queued = gen_ts();
     my $sleep_time = 1;
+    _log( 0, "[q $$] " . join(" ", @_) );
 
     db_lock();
     while ($db->{LIMIT} <= $db->{running}) {
         db_unlock();
-        say STDERR "queue full, waiting..." if $sleep_time >= 32;
+        _log( 0, "[w $$] sleep $sleep_time" );
         sleep $sleep_time; $sleep_time %= 31; $sleep_time *= 2;
         db_lock();
     }
@@ -52,9 +53,11 @@ sub queue {
     $db->{running}++;
     db_unlock();
 
-    chomp(my $started = `date +%F.%T`);
+    _log( 0, "[s $$] " . join(" ", @_) );
+    my $started = gen_ts();
     my ($rc, $es) = run($queued, @_);
-    chomp(my $completed = `date +%F.%T`);
+    my $completed = gen_ts();
+    _log( 0, "[e $$] " . join(" ", @_) );
 
     db_lock();
     $db->{running}--;
@@ -81,10 +84,11 @@ sub run {
     open( STDOUT, ">>", "$base.out" );
     open( STDERR, ">>", "$base.err" );
 
-    say STDERR "$$ queued $queued starting " . `date +%F.%T` . join( " ", "+", @ARGV );
+    _log( 0, "$$ starting (queued $queued)" );
+    _log( 0, join( " ", "+", @ARGV ) );
     my $rc = system(@ARGV);
     my $es = ($rc == 0 ? 0 : interpret_exit_code());
-    say STDERR "$$ rc=$rc, es=$es";
+    _log( 0, "$$ rc=$rc, es=$es" );
     say STDERR "";
     system("mv $base.out $base.err $BASE/d");
 
@@ -151,3 +155,18 @@ sub interpret_exit_code {
         return sprintf "child exited with value %d", $? >> 8;
     }
 }
+
+sub gen_ts {
+    my ( $s, $m, $h ) = (localtime)[ 0 .. 2 ];
+    for ( $s, $m, $h ) {
+        $_ = "0$_" if $_ < 10;
+    }
+    return "$h:$m:$s";
+}
+
+sub _log {
+    my ( $lvl, $msg ) = @_;
+    return if $lvl > ( $ENV{D} || 0 );
+    say STDERR "[" . gen_ts . "] $msg";
+}
+
