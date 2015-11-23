@@ -44,8 +44,8 @@ sub queue {
     db_lock();
     while ($db->{LIMIT} <= $db->{running}) {
         db_unlock();
-        say STDERR "queue full, waiting...";
-        sleep $sleep_time; $sleep_time %= 15; $sleep_time *= 2;
+        say STDERR "queue full, waiting..." if $sleep_time >= 32;
+        sleep $sleep_time; $sleep_time %= 31; $sleep_time *= 2;
         db_lock();
     }
     # reserve our slot and get out
