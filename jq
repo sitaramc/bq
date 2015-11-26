@@ -39,7 +39,10 @@ if ( $ARGV[0] eq '-t' ) {
 
 exit 0;
 
+# the workhorse of this program
 sub queue {
+    redir();    # redirect STDOUT and STDERR right away
+
     my $queued = gen_ts();
     my $sleep_time = 1;
     _log( 0, "[q $$] " . join(" ", @_) );
@@ -76,6 +79,8 @@ sub queue {
     };
 
     db_unlock();
+
+    un_redir();
 }
 
 sub queue_full {
@@ -87,26 +92,12 @@ sub my_turn {
 
 sub run {
     my $queued = shift;
-    my $base = "$BASE/r/$$";
 
-    open(my $oldout, ">&STDOUT") or die;
-    open(my $olderr, ">&STDERR") or die;
-    open( STDIN, "<", "/dev/null");
-    open( STDOUT, ">>", "$base.out" );
-    open( STDERR, ">>", "$base.err" );
-
-    _log( 0, "$$ starting (queued $queued)" );
     _log( 0, join( " ", "+", @ARGV ) );
     my $rc = system(@ARGV);
     my $es = ($rc == 0 ? 0 : interpret_exit_code());
-    _log( 0, "$$ rc=$rc, es=$es" );
     say STDERR "";
-    system("mv $base.out $base.err $BASE/d");
-
-    close(STDOUT);
-    close(STDERR);
-    open(STDOUT, ">&", $oldout) or die;
-    open(STDERR, ">&", $olderr) or die;
+    system("mv $BASE/r/$$.out $BASE/r/$$.err $BASE/d");
 
     return($rc, $es);
 }
@@ -189,6 +180,26 @@ sub gen_ts {
         $_ = "0$_" if $_ < 10;
     }
     return "$h:$m:$s";
+}
+
+{
+    my $oldout;
+    my $olderr;
+
+    sub redir {
+        open($oldout, ">&STDOUT") or die;
+        open($olderr, ">&STDERR") or die;
+        open( STDIN, "<", "/dev/null");
+        open( STDOUT, ">>", "$BASE/r/$$.out" );
+        open( STDERR, ">>", "$BASE/r/$$.err" );
+    }
+
+    sub un_redir {
+        close(STDOUT);
+        close(STDERR);
+        open(STDOUT, ">&", $oldout) or die;
+        open(STDERR, ">&", $olderr) or die;
+    }
 }
 
 sub _log {
