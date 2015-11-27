@@ -11,7 +11,8 @@ use Cwd;
 
 # for now, q size is 1 and each job is independent; no IPC
 
-usage() unless ( @ARGV and $ARGV[0] ne '-h' );
+@ARGV = qw(-status) unless @ARGV;
+usage() if $ARGV[0] eq '-h';
 
 # ----------------------------------------------------------------------
 # kinda sorta globals
@@ -23,7 +24,9 @@ db_open();    # may end up waiting for a looooong time
 # ----------------------------------------------------------------------
 # main
 
-if ( $ARGV[0] eq '-t' ) {
+if ($ARGV[0] eq '-status') {
+    status();
+} elsif ( $ARGV[0] eq '-t' ) {
     tail();     # ftail on in-progress output
 } elsif ( $ARGV[0] eq '-f' ) {
     flush();    # cat 'done' files, unlink them
@@ -38,6 +41,27 @@ if ( $ARGV[0] eq '-t' ) {
 }
 
 exit 0;
+
+sub status {
+    db_lock();
+
+    my @d = glob("$BASE/d/*.err");    # we assume count of *.err and *.out is same
+    my @r = glob("$BASE/r/*.err");
+    my $qc = scalar( @{ $db->{queued_pids} || [] } );
+
+    printf STDERR ( "WARNING! %d jobs queued, but running (%d) < LIMIT (%d)\n", $qc, $db->{running}, $db->{LIMIT} )
+      if $qc and $db->{LIMIT} > $db->{running};
+
+    printf "%7d queued jobs\n",  $qc;
+    printf "%7d running\n",      $db->{running};
+    # printf "%7d LIMIT\n",        $db->{LIMIT};
+    printf "%7d unflushed jobs\n", scalar( @d );
+    say "";
+    printf "%7d completed jobs\n", scalar( @{ $db->{history} || [] } );
+    printf "%7d errors\n", scalar( _history_subset(1) );
+
+    db_unlock();
+}
 
 # the workhorse of this program
 sub queue {
@@ -234,12 +258,14 @@ sub usage {
 
 __DATA__
 
-Usage: jq [-t|-f|-c|-e|-purge]
+Usage: jq [-status|-t|-f|-c|-e|-purge]
        jq command [args]
+       jq -h
 
+-status: if no arguments are supplied, '-status' is implied
 -t: "tail" running jobs stdout and stderr files (needs ftail program, to be
     uploaded later)
--f: "flush" completed jobs stdout and stderr files
+-f: print and "flush" completed jobs stdout and stderr files
 -c: show "completed" jobs
 -e: show jobs with "errors"
 
