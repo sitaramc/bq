@@ -41,6 +41,10 @@ exit 0;
 
 # the workhorse of this program
 sub queue {
+    exit 0 if fork();   # hah!  no need to use '&' anymore :)
+    # unkillable!  well for -15 anyway not for -9
+    $SIG{TERM} = sub { "phhht!"; };
+
     redir();    # redirect STDOUT and STDERR right away
 
     my $queued = gen_ts();
