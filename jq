@@ -75,6 +75,8 @@ sub queue {
     my $sleep_time = 1;
     _log( 0, "[q $$] " . join(" ", @_) );
 
+    # the waiting game
+
     db_lock();
     push @{ $db->{queued_pids} }, $$;
     while (queue_full() or not my_turn()) {
@@ -88,11 +90,15 @@ sub queue {
     $db->{running}++;
     db_unlock();
 
+    # the running game
+
     _log( 0, "[s $$] " . join(" ", @_) );
     my $started = gen_ts();
     my ($rc, $es) = run($queued, @_);
     my $completed = gen_ts();
     _log( 0, "[e $$] rc=$rc, es=$es" );
+
+    # the end game
 
     db_lock();
     $db->{running}--;
@@ -105,7 +111,6 @@ sub queue {
         started => $started,
         completed => $completed,
     };
-
     db_unlock();
 
     un_redir();
