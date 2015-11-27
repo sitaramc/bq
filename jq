@@ -123,9 +123,9 @@ sub flush {
 
 sub history {
     my $min_rc = shift;
-    my $db2 = $db->export();
+    my @db2 = _history_subset($min_rc);
     # XXX needs to be refined later
-    for ( @{ $db2->{history} } ) {
+    for ( @db2 ) {
         next if $_->{rc} < $min_rc;
         say Dumper $_->{cmd};
         say "cd $_->{pwd}; " . join(" ", @{ $_->{cmd} });
@@ -167,6 +167,17 @@ sub db_open {
 }
 sub db_lock { $db->lock_exclusive(); }
 sub db_unlock { $db->unlock(); }
+
+sub _history_subset {
+    my $min_rc = shift;
+    my $db2 = $db->export();
+    my @db2;
+    for ( @{ $db2->{history} } ) {
+        next if $_->{rc} < $min_rc;
+        push @db2, $_;
+    }
+    return @db2;
+}
 
 sub interpret_exit_code {
     if ( $? == -1 ) {
