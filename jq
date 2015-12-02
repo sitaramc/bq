@@ -61,6 +61,7 @@ sub status {
     printf "%7d errors\n", scalar( _history_subset(1) );
 
     db_unlock();
+    say "\n(run 'jq -h' for help)\n";
 }
 
 # the workhorse of this program
@@ -156,9 +157,9 @@ sub history {
     # XXX needs to be refined later
     for ( @db2 ) {
         next if $_->{rc} < $min_rc;
-        say Dumper $_->{cmd};
+        say Dumper $_->{cmd} if $ENV{D};
         say "cd $_->{pwd}; " . join(" ", @{ $_->{cmd} });
-        say $_->{rc} . "\t" . $_->{es};
+        say $_->{completed} . "\t" . $_->{rc} . "\t" . $_->{es};
         say "";
     }
 }
@@ -219,11 +220,14 @@ sub interpret_exit_code {
 }
 
 sub gen_ts {
-    my ( $s, $m, $h ) = (localtime)[ 0 .. 2 ];
-    for ( $s, $m, $h ) {
+    my ( $s, $min, $h, $d, $m, $y ) = (localtime)[ 0 .. 5 ];
+    $y += 1900; $m++;    # usual adjustments
+    for ( $s, $min, $h, $d, $m ) {
         $_ = "0$_" if $_ < 10;
     }
-    return "$h:$m:$s";
+    my $ts = "$y-$m-$d.$h:$min:$s";
+
+    return $ts;
 }
 
 {
@@ -265,7 +269,6 @@ __DATA__
 
 Usage: jq [-status|-t|-f|-c|-e|-purge]
        jq command [args]
-       jq -h
 
 -status: if no arguments are supplied, '-status' is implied
 -t: "tail" running jobs stdout and stderr files (needs ftail program, to be
