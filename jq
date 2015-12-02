@@ -70,8 +70,16 @@ sub queue {
     # unkillable!  well for -15 anyway not for -9
     $SIG{TERM} = sub { "phhht!"; };
 
+    # explicit sleep if asked
+    if ($_[0] eq '-s' and $_[1] =~ /^(\d+)([smh]?)$/) {
+        my %mult = (s => 1, m => 60, h => 3600);
+        sleep $1 * $mult{ $2 || 's' };
+        shift; shift;
+    }
+
     redir();    # redirect STDOUT and STDERR right away
 
+    # and *then* throw your hat in the ring
     my $queued = gen_ts();
     my $sleep_time = 1;
     _log( 0, "[q $$] " . join(" ", @_) );
@@ -127,8 +135,8 @@ sub my_turn {
 sub run {
     my $queued = shift;
 
-    _log( 0, join( " ", "+", @ARGV ) );
-    my $rc = system(@ARGV);
+    _log( 0, join( " ", "+", @_ ) );
+    my $rc = system(@_);
     my $es = ($rc == 0 ? 0 : interpret_exit_code());
     say STDERR "";
     system("mv $BASE/r/$$.out $BASE/r/$$.err $BASE/d");
@@ -268,7 +276,7 @@ sub usage {
 __DATA__
 
 Usage: jq [-status|-t|-f|-c|-e|-purge]
-       jq command [args]
+       jq [-s time] command [args]
 
 -status: if no arguments are supplied, '-status' is implied
 -t: "tail" running jobs stdout and stderr files (needs ftail program, to be
@@ -279,3 +287,6 @@ Usage: jq [-status|-t|-f|-c|-e|-purge]
 
 -purge: purge everything (assuming no jobs are running and no outputs pending
     flush)
+
+-s: time is an integer, followed optionally by 's', 'm', or 'h' (no spaces).
+    The job will first sleep for that duration and *then* get queued.
