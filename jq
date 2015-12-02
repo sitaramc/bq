@@ -27,7 +27,7 @@ db_open();    # may end up waiting for a looooong time
 if ($ARGV[0] eq '-status') {
     status();
 } elsif ( $ARGV[0] eq '-t' ) {
-    tail();     # ftail on in-progress output
+    tail();     # tail on in-progress output
 } elsif ( $ARGV[0] eq '-f' ) {
     flush();    # cat 'done' files, unlink them
 } elsif ( $ARGV[0] eq '-c' ) {
@@ -147,7 +147,7 @@ sub run {
 sub tail {
     for my $f (glob "$BASE/r/*") {
         say "----8<---- $f";
-        say `ftail $f`;
+        say `tail $f`;
     }
 }
 
@@ -279,8 +279,7 @@ Usage: jq [-status|-t|-f|-c|-e|-purge]
        jq [-s time] command [args]
 
 -status: if no arguments are supplied, '-status' is implied
--t: "tail" running jobs stdout and stderr files (needs ftail program, to be
-    uploaded later)
+-t: "tail" running and queued jobs' stdout and stderr files
 -f: print and "flush" completed jobs stdout and stderr files
 -c: show "completed" jobs
 -e: show jobs with "errors"
