@@ -64,10 +64,9 @@ sub status {
     printf STDERR ( "WARNING! %d jobs queued, but running (%d) < LIMIT (%d)\n", $qc, $db->{running}, $db->{LIMIT} )
       if $qc and $db->{LIMIT} > $db->{running};
 
-    printf "%7d queued jobs\n", $qc;
-    printf "%7d running\n",     $db->{running};
-    # printf "%7d LIMIT\n",        $db->{LIMIT};
-    printf "%7d unflushed jobs\n", scalar(@d);
+    printf "%7d queued jobs\n",        $qc;
+    printf "%7d running (limit %d)\n", $db->{running}, $db->{LIMIT};
+    printf "%7d unflushed jobs\n",     scalar(@d);
     say "";
     printf "%7d completed jobs\n", scalar( @{ $db->{history} || [] } );
     printf "%7d errors\n", scalar( _history_subset(1) );
@@ -199,6 +198,13 @@ sub purge {
     }
 
     $db->{history} = [];
+    db_unlock();
+}
+
+sub limit {
+    my $l = shift;
+    db_lock();
+    $db->{LIMIT} = $l;
     db_unlock();
 }
 
