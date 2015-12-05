@@ -47,13 +47,15 @@ elsif   ( $options{errors} )        { history(1); }                 # print hist
 elsif   ( $options{purge} )         { purge(); }
 elsif   ( exists $options{limit} )  { limit( $options{limit} ); }
 elsif   ( @ARGV )                   { queue(@ARGV); }               # no subcommands but arguments exist; queue up shell command
-else                                { status(); }                   # no subcommands, no arguments; print status
+else                                { status(); say "\n(run 'jq -h' for help)\n"; }
+                                                                    # no subcommands, no arguments; print status
 #>>>
 
 exit 0;
 
 # ----------------------------------------------------------------------
 
+sub _printf_n;
 sub status {
     db_lock();
 
@@ -64,15 +66,14 @@ sub status {
     printf STDERR ( "WARNING! %d jobs queued, but running (%d) < LIMIT (%d)\n", $qc, $db->{running}, $db->{LIMIT} )
       if $qc and $db->{LIMIT} > $db->{running};
 
-    printf "%7d queued jobs\n",        $qc;
-    printf "%7d running (limit %d)\n", $db->{running}, $db->{LIMIT};
-    printf "%7d unflushed jobs\n",     scalar(@d);
-    say "";
-    printf "%7d completed jobs\n", scalar( @{ $db->{history} || [] } );
-    printf "%7d errors\n", scalar( _history_subset(1) );
+    printf "Queue ID: '%s', limit: %d\n", $qid, $db->{LIMIT};
+    _printf_n "%7d queued jobs\n",    $qc;
+    _printf_n "%7d running\n",        $db->{running};
+    _printf_n "%7d unflushed jobs\n", scalar(@d);
+    _printf_n "%7d completed jobs\n", scalar( @{ $db->{history} || [] } );
+    _printf_n "%7d errors\n",         scalar( _history_subset(1) );
 
     db_unlock();
-    say "\n(run 'jq -h' for help)\n";
 }
 
 # the workhorse of this program
@@ -210,6 +211,12 @@ sub limit {
 
 # ----------------------------------------------------------------------
 # service routines
+
+sub _printf_n {
+    my ($f, $i) = @_;
+    return unless $i;
+    printf $f, $i;
+}
 
 sub prep {
     $qid = shift || 'default';
