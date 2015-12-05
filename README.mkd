@@ -9,24 +9,83 @@ uses a database and locking to manage the queue.
 
 Here's the usage message.
 
-    Usage: jq [-status|-t|-f|-c|-e|-purge]
-           jq [-s time] command [args]
+    Usage: jq [options] [subcommand]
+           jq [options] shell-command [args]
 
-    -status: if no arguments are supplied, '-status' is implied
-    -t: "tail" running and queued jobs' stdout and stderr files
-    -f: print and "flush" completed jobs stdout and stderr files
-    -c: show "completed" jobs
-    -e: show jobs with "errors"
+    Options:
+        -q                  queue ID to use (default: 'default')
+        -s, -sleep N[mh]    sleep N (s|m|h) before queueing 'shell-command'
+        -lf, -logfile PATH  also log messages to given PATH; also works by setting
+                            JQ_LOGFILE env var
 
-    -purge: purge everything (assuming no jobs are running and no outputs pending
-        flush)
+    Subcommands:
+        -h                  show this help
+        -t, -tail           "tail" running and queued jobs' stdout and stderr files
+        -f, -flush          print and "flush" completed jobs stdout and stderr files
+        -c, -history        show "completed" jobs
+        -e, -errors         show jobs with "errors"
+        -purge              purge history records from DB
+        -limit N            set limit to N for given queue
+    If no subcommand is given, print status for given queue.  If you supply more
+    than one subcommand, behaviour is undefined, so don't do that.
 
-    -s: time is an integer, followed optionally by 's', 'm', or 'h' (no spaces).
-        The job will first sleep for that duration and *then* get queued.
+    See docs for more, especially for details on '-q', '-s', etc.
 
 It's mostly self-explanatory, or at least I hope it is.
 
-# notes
+# queue IDs and limits
+
+Sometimes you need more than one queue.  I usually use the default queue for
+download jobs, and a different one, (arbitrarily called "CPU") for CPU-hogging
+jobs:
+
+    jq ...          # uses queue called 'default'
+    jq -q CPU ...   # uses queue called 'CPU'
+
+This is even more useful if you want different limits for different jobs.
+Just run these commands once and you're all set (these settings will stay even
+across reboots, because state is maintained by a database, not a process):
+
+    jq -q IO -limit 1
+    jq -q net -limit 2
+    jq -q CPU -limit 4
+
+You can also block a queue by setting the limit to 0.  When you do this, jobs
+will be queued but won't start.  I sometimes do this to queue up any disk or
+CPU intensive tasks, then open the queue just before I go for lunch.
+
+# sleep-before-queue
+
+The `-s time` is useful when you want to run a job after some delay.  You
+might think this should work:
+
+    jq sleep 2h
+    jq wget ...
+
+But that sleep is now needlessly taking up a runnable slot, and if your queue
+limit is 1 you can't run anything *else* now.  Instead, this:
+
+    jq -s 2h wget ...
+
+sleeps before doing anything at all, so the queue is not held up, letting you
+continue to use it in the meanwhile.  In fact, until the 2 hours (in this
+example) have passed, you won't even see the job in the status output; you can
+only see it using `ps` or some variant (like `pgrep`).
+
+# logfile
+
+Normally, all output is ephemeral (running 'jq -f' flushes the saved STDOUT
+and STDERR data).  Since STDERR includes jq's job start/end messages, they're
+also gone.
+
+But sometimes you may want those messages to be stored somewhere for later
+examination; that's what `-logfile` (`-lf`) does.
+
+Note that the actual STDOUT/STDERR of the command itself is not saved to this
+logfile; after all, it could be arbitrarily large.  If you need that your
+command should do it's own redirection.
+
+# other notes
 
 1.  When you do something like this:
 
@@ -38,23 +97,6 @@ It's mostly self-explanatory, or at least I hope it is.
     evaluation, you need to run them together, like `jq 'command1 &&
     command2'`.
 
-2.  The `-s time` is useful when you want to run a job after some delay.  You
-    might think this should work:
-
-        jq sleep 2h
-        jq wget ...
-
-    But that sleep is now holding up the queue needlessly -- you can't run
-    anything else until that is done.  Instead, this:
-
-        jq -s 2h wget ...
-
-    sleeps before doing anything at all, so the queue is not held up, letting
-    you continue to use it in the meanwhile.  In fact, until the 2 hours (in
-    this example) have passed, you won't even see the job in the status
-    output; you can only see it using `ps` or some variant (like `pgrep`).
-
 # TODO
 
-queue jumping, canceling a queued job, setting the number of jobs that can be
-running at any time, redoing the last failed job, ...
+queue jumping, canceling a queued job, redoing the last failed job, ...
