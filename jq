@@ -12,11 +12,10 @@ use Cwd;
 
 # ----------------------------------------------------------------------
 # kinda sorta globals
-my ( $db, $qid, $BASE );
+my ( $db, $qid, $BASE, %options );
 
 # ----------------------------------------------------------------------
 # arguments
-my (%options);
 #<<<
 GetOptions( \%options,
     "help|h|?",
@@ -28,6 +27,7 @@ GetOptions( \%options,
     "purge",
     "limit=i",
     "sleep|s=s",
+    "logfile|lf=s",
 ) or die "option error; maybe a typo or a missing '--' somewhere?\n";
 #>>>
 usage() if $options{help};
@@ -216,6 +216,8 @@ sub prep {
     $BASE = "$ENV{HOME}/.cache/jq-$qid";
     -d "$BASE/r" or system("mkdir -p $BASE/r $BASE/d");
     db_open();
+
+    $options{logfile} ||= $ENV{JQ_LOGFILE} || '';
 }
 
 sub db_open {
@@ -288,7 +290,14 @@ sub gen_ts {
 sub _log {
     my ( $lvl, $msg ) = @_;
     return if $lvl > ( $ENV{D} || 0 );
+
     say STDERR "[" . gen_ts . "] $msg";
+
+    # log file also?
+    return unless $options{logfile};
+    open my $lfh, ">>", $options{logfile}
+      or say STDERR "logfile '$options{logfile}' could not be opened: $!";
+    say $lfh "[" . gen_ts . "] $msg";
 }
 
 # ----------------------------------------------------------------------
@@ -307,6 +316,8 @@ Usage: jq [options] [subcommand]
 Options:
     -q                  queue ID to use (default: 'default')
     -s, -sleep N[mh]    sleep N (s|m|h) before queueing 'shell-command'
+    -lf, -logfile PATH  also log messages to given PATH; also works by setting
+                        JQ_LOGFILE env var
 
 Subcommands:
     -h                  show this help
