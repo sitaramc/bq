@@ -97,6 +97,15 @@ command should do it's own redirection.
     evaluation, you need to run them together, like `jq 'command1 &&
     command2'`.
 
+2.  Forcing a job to run *right now* (which was a feature available in
+    [exqueue](http://github.com/sitaramc/exqueue), is trivial here.  Just use
+    a different queue!
+
+    Of course there's a risk of creating all sorts of queues whose names you
+    forgot, so you should probably do this one-time: `jq -q now -limit 99`,
+    and simply use the `now` queue for all "do it *now*" jobs.  Simple, easy
+    to remember :)
+
 # TODO
 
-queue jumping, canceling a queued job, redoing the last failed job, ...
+list of queues available, canceling a queued job, redoing the last failed job, ...
