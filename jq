@@ -113,7 +113,7 @@ sub queue {
 
     # the running game
 
-    _log( 0, "[s $$] " . join( " ", @_ ) );
+    _log( 0, "[s $$] " . getcwd() );
     my $started = gen_ts();
     my ( $rc, $es ) = run( $queued, @_ );
     my $completed = gen_ts();
