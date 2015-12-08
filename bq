@@ -47,7 +47,7 @@ elsif   ( $options{errors} )        { history(1); }                 # print hist
 elsif   ( $options{purge} )         { purge(); }
 elsif   ( exists $options{limit} )  { limit( $options{limit} ); }
 elsif   ( @ARGV )                   { queue(@ARGV); }               # no subcommands but arguments exist; queue up shell command
-else                                { status(); say "\n(run 'jq -h' for help)\n"; }
+else                                { status(); say "\n(run 'bq -h' for help)\n"; }
                                                                     # no subcommands, no arguments; print status
 #>>>
 
@@ -220,11 +220,11 @@ sub _printf_n {
 
 sub prep {
     $qid = shift || 'default';
-    $BASE = "$ENV{HOME}/.cache/jq-$qid";
+    $BASE = "$ENV{HOME}/.cache/bq-$qid";
     -d "$BASE/r" or system("mkdir -p $BASE/r $BASE/d");
     db_open();
 
-    $options{logfile} ||= $ENV{JQ_LOGFILE} || '';
+    $options{logfile} ||= $ENV{BQ_LOGFILE} || '';
 }
 
 sub db_open {
@@ -317,14 +317,14 @@ sub usage {
 
 __DATA__
 
-Usage: jq [options] [subcommand]
-       jq [options] shell-command [args]
+Usage: bq [options] [subcommand]
+       bq [options] shell-command [args]
 
 Options:
     -q                  queue ID to use (default: 'default')
     -s, -sleep N[mh]    sleep N (s|m|h) before queueing 'shell-command'
     -lf, -logfile PATH  also log messages to given PATH; also works by setting
-                        JQ_LOGFILE env var
+                        BQ_LOGFILE env var
 
 Subcommands:
     -h                  show this help

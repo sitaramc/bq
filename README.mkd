@@ -1,22 +1,22 @@
-# jq -- job queue
+# bq -- batch queue
 
-`jq` is a very simple program that maintains a queue of one job.  Unlike
+`bq` is a very simple program that maintains a queue of one job.  Unlike
 [exqueue](http://github.com/sitaramc/exqueue), which has a "server" component
-managing the queue and firing off tasks as each one completes, `jq` simply
+managing the queue and firing off tasks as each one completes, `bq` simply
 uses a database and locking to manage the queue.
 
-(You will need to install the `DBM::Deep` perl module for `jq` to work).
+(You will need to install the `DBM::Deep` perl module for `bq` to work).
 
 Here's the usage message.
 
-    Usage: jq [options] [subcommand]
-           jq [options] shell-command [args]
+    Usage: bq [options] [subcommand]
+           bq [options] shell-command [args]
 
     Options:
         -q                  queue ID to use (default: 'default')
         -s, -sleep N[mh]    sleep N (s|m|h) before queueing 'shell-command'
         -lf, -logfile PATH  also log messages to given PATH; also works by setting
-                            JQ_LOGFILE env var
+                            BQ_LOGFILE env var
 
     Subcommands:
         -h                  show this help
@@ -39,16 +39,16 @@ Sometimes you need more than one queue.  I usually use the default queue for
 download jobs, and a different one, (arbitrarily called "CPU") for CPU-hogging
 jobs:
 
-    jq ...          # uses queue called 'default'
-    jq -q CPU ...   # uses queue called 'CPU'
+    bq ...          # uses queue called 'default'
+    bq -q CPU ...   # uses queue called 'CPU'
 
 This is even more useful if you want different limits for different jobs.
 Just run these commands once and you're all set (these settings will stay even
 across reboots, because state is maintained by a database, not a process):
 
-    jq -q IO -limit 1
-    jq -q net -limit 2
-    jq -q CPU -limit 4
+    bq -q IO -limit 1
+    bq -q net -limit 2
+    bq -q CPU -limit 4
 
 You can also block a queue by setting the limit to 0.  When you do this, jobs
 will be queued but won't start.  I sometimes do this to queue up any disk or
@@ -59,13 +59,13 @@ CPU intensive tasks, then open the queue just before I go for lunch.
 The `-s time` is useful when you want to run a job after some delay.  You
 might think this should work:
 
-    jq sleep 2h
-    jq wget ...
+    bq sleep 2h
+    bq wget ...
 
 But that sleep is now needlessly taking up a runnable slot, and if your queue
 limit is 1 you can't run anything *else* now.  Instead, this:
 
-    jq -s 2h wget ...
+    bq -s 2h wget ...
 
 sleeps before doing anything at all, so the queue is not held up, letting you
 continue to use it in the meanwhile.  In fact, until the 2 hours (in this
@@ -74,8 +74,8 @@ only see it using `ps` or some variant (like `pgrep`).
 
 # logfile
 
-Normally, all output is ephemeral (running 'jq -f' flushes the saved STDOUT
-and STDERR data).  Since STDERR includes jq's job start/end messages, they're
+Normally, all output is ephemeral (running 'bq -f' flushes the saved STDOUT
+and STDERR data).  Since STDERR includes bq's job start/end messages, they're
 also gone.
 
 But sometimes you may want those messages to be stored somewhere for later
@@ -89,12 +89,12 @@ command should do it's own redirection.
 
 1.  When you do something like this:
 
-        jq wget -c --progress=dot:mega http://media.risky.biz/RB391.mp3
-        jq id3v2 -D RB391.mp3
+        bq wget -c --progress=dot:mega http://media.risky.biz/RB391.mp3
+        bq id3v2 -D RB391.mp3
 
-    `jq` does not check if the wget finished OK or not; as far as it is
+    `bq` does not check if the wget finished OK or not; as far as it is
     concerned these are two separate jobs.  If you need conditional
-    evaluation, you need to run them together, like `jq 'command1 &&
+    evaluation, you need to run them together, like `bq 'command1 &&
     command2'`.
 
 2.  Forcing a job to run *right now* (which was a feature available in
@@ -102,7 +102,7 @@ command should do it's own redirection.
     a different queue!
 
     Of course there's a risk of creating all sorts of queues whose names you
-    forgot, so you should probably do this one-time: `jq -q now -limit 99`,
+    forgot, so you should probably do this one-time: `bq -q now -limit 99`,
     and simply use the `now` queue for all "do it *now*" jobs.  Simple, easy
     to remember :)
 
