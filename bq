@@ -73,6 +73,9 @@ sub status {
     _printf_n "%7d completed jobs\n", scalar( @{ $db->{history} || [] } );
     _printf_n "%7d errors\n",         scalar( _history_subset(1) );
 
+    # print commands: done-but-errored, running, queued
+    _print_commands(@d, @r);
+
     db_unlock();
 }
 
@@ -160,14 +163,14 @@ sub run {
 
 sub tail {
     for my $f ( glob "$BASE/r/*" ) {
-        say "----8<---- $f";
+        say STDOUT ($f =~ /.err$/ ? "=" : "-") x 80;
         say `tail $f`;
     }
 }
 
 sub flush {
     for my $f ( glob "$BASE/d/*" ) {
-        say "----8<---- $f";
+        say STDOUT ($f =~ /.err$/ ? "=" : "-") x 80;
         say `cat $f`;
         unlink $f;
     }
@@ -216,6 +219,24 @@ sub _printf_n {
     my ($f, $i) = @_;
     return unless $i;
     printf $f, $i;
+}
+
+# I don't want to add more to the actual database, so we use the stuff in the *.err files here
+sub _print_commands {
+    my @f = @_;     # list of *.err files
+    print "\n";
+    for my $f (@f) {
+        my ($cmd, $st) = ('', '(q)');
+        open(my $fh, "<", $f) or next;
+        while (<$fh>) {
+            next unless /^.[\d.:-]+. .(q|s|e) \d+. (.*)/;
+            $cmd ||= $2;
+            $st = '>' if $1 eq 's';
+            $st = 0   if $1 eq 'e';
+            $st = "ERROR: $2\n" if $1 eq 'e' and $2 ne 'rc=0, es=0';
+        }
+        print STDOUT "$st\t$cmd\n" if $st;
+    }
 }
 
 sub prep {
