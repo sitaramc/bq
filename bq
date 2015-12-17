@@ -56,6 +56,7 @@ exit 0;
 # ----------------------------------------------------------------------
 
 sub _printf_n;
+
 sub status {
     db_lock();
 
@@ -67,14 +68,14 @@ sub status {
       if $qc and $db->{LIMIT} > $db->{running};
 
     printf "Queue ID: '%s', limit: %d\n", $qid, $db->{LIMIT};
-    _printf_n "%7d queued jobs\n",    $qc;
-    _printf_n "%7d running\n",        $db->{running};
-    _printf_n "%7d unflushed jobs\n", scalar(@d);
-    _printf_n "%7d completed jobs\n", scalar( @{ $db->{history} || [] } );
-    _printf_n "%7d errors\n",         scalar( _history_subset(1) );
+    _printf_n "%7d queued\n",    $qc;
+    _printf_n "%7d running\n",   $db->{running};
+    _printf_n "%7d unflushed\n", scalar(@d);
+    _printf_n "%7d completed\n", scalar( @{ $db->{history} || [] } );
+    _printf_n "%7d errors\n",    scalar( _history_subset(1) );
 
     # print commands: done-but-errored, running, queued
-    _print_commands(@d, @r);
+    _print_commands( @d, @r );
 
     db_unlock();
 }
@@ -83,10 +84,10 @@ sub status {
 sub queue {
     exit 0 if fork();    # hah!  no need to use '&' anymore :)
                          # unkillable!  well for -15 anyway not for -9
-    $SIG{TERM} = sub { "phhht!"; };
+    $SIG{TERM} = sub { say STDERR "phhht!"; };
 
     # explicit sleep if asked
-    if ( ($options{sleep} || '') =~ /^(\d+)([smh]?)$/ ) {
+    if ( ( $options{sleep} || '' ) =~ /^(\d+)([smh]?)$/ ) {
         my %mult = ( s => 1, m => 60, h => 3600 );
         sleep $1 * $mult{ $2 || 's' };
     }
@@ -163,14 +164,14 @@ sub run {
 
 sub tail {
     for my $f ( glob "$BASE/r/*" ) {
-        say STDOUT ($f =~ /.err$/ ? "=" : "-") x 80;
+        say STDOUT ( $f =~ /.err$/ ? "=" : "-" ) x 80;
         say `tail $f`;
     }
 }
 
 sub flush {
     for my $f ( glob "$BASE/d/*" ) {
-        say STDOUT ($f =~ /.err$/ ? "=" : "-") x 80;
+        say STDOUT ( $f =~ /.err$/ ? "=" : "-" ) x 80;
         say `cat $f`;
         unlink $f;
     }
@@ -216,23 +217,23 @@ sub limit {
 # service routines
 
 sub _printf_n {
-    my ($f, $i) = @_;
+    my ( $f, $i ) = @_;
     return unless $i;
     printf $f, $i;
 }
 
 # I don't want to add more to the actual database, so we use the stuff in the *.err files here
 sub _print_commands {
-    my @f = @_;     # list of *.err files
+    my @f = @_;    # list of *.err files
     print "\n";
     for my $f (@f) {
-        my ($cmd, $st) = ('', '(q)');
-        open(my $fh, "<", $f) or next;
+        my ( $cmd, $st ) = ( '', '(q)' );
+        open( my $fh, "<", $f ) or next;
         while (<$fh>) {
             next unless /^.[\d.:-]+. .(q|s|e) \d+. (.*)/;
             $cmd ||= $2;
-            $st = '>' if $1 eq 's';
-            $st = 0   if $1 eq 'e';
+            $st = '>'           if $1 eq 's';
+            $st = 0             if $1 eq 'e';
             $st = "ERROR: $2\n" if $1 eq 'e' and $2 ne 'rc=0, es=0';
         }
         print STDOUT "$st\t$cmd\n" if $st;
