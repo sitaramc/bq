@@ -163,18 +163,16 @@ sub run {
 }
 
 sub tail {
-    for my $f ( glob "$BASE/r/*" ) {
-        say STDOUT ( $f =~ /.err$/ ? "=" : "-" ) x 80;
-        say `tail $f`;
-    }
+    my @f = glob "$BASE/r/*";
+    return unless @f;
+    system("less", "-r", @f);
 }
 
 sub flush {
-    for my $f ( glob "$BASE/d/*" ) {
-        say STDOUT ( $f =~ /.err$/ ? "=" : "-" ) x 80;
-        say `cat $f`;
-        unlink $f;
-    }
+    my @f = glob "$BASE/d/*";
+    return unless @f;
+    system("less", "-r", @f);
+    unlink @f;
 }
 
 sub history {
