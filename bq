@@ -89,7 +89,7 @@ sub queue {
     # explicit sleep if asked
     if ( ( $options{sleep} || '' ) =~ /^(\d+)([smh]?)$/ ) {
         my %mult = ( s => 1, m => 60, h => 3600 );
-        sleep $1 * $mult{ $2 || 's' };
+        _sleep($1 * $mult{ $2 || 's' });
     }
 
     redir();             # redirect STDOUT and STDERR right away
@@ -325,6 +325,17 @@ sub _log {
     open my $lfh, ">>", $options{logfile}
       or say STDERR "logfile '$options{logfile}' could not be opened: $!";
     say $lfh "[" . gen_ts . "] $msg";
+}
+
+sub _sleep {
+    my $target = time() + shift;
+    # sleep for at least the given number of seconds and at most 60 seconds
+    # more, despite suspend resume cycles.  Of course if you're asleep when
+    # the target time comes around, the sleep will complete on next waking up.
+    my $diff;
+    while ( ($diff = $target - time()) > 0 ) {
+        sleep( $diff > 60 ? 60 : $diff );
+    }
 }
 
 # ----------------------------------------------------------------------
