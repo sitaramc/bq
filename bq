@@ -87,9 +87,11 @@ sub queue {
     $SIG{TERM} = sub { say STDERR "phhht!"; };
 
     # explicit sleep if asked
-    if ( ( $options{sleep} || '' ) =~ /^(\d+)([smh]?)$/ ) {
-        my %mult = ( s => 1, m => 60, h => 3600 );
+    if ( ( $options{sleep} || '0' ) =~ /^(\d+)([smhd]?)$/ ) {
+        my %mult = ( s => 1, m => 60, h => 3600, d => 3600*24 );
         _sleep($1 * $mult{ $2 || 's' });
+    } else {
+        die "invalid sleep time";
     }
 
     redir();             # redirect STDOUT and STDERR right away
