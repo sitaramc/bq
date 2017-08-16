@@ -47,7 +47,7 @@ elsif   ( $options{errors} )        { history(1); }                 # print hist
 elsif   ( $options{purge} )         { purge(); }
 elsif   ( exists $options{limit} )  { limit( $options{limit} ); }
 elsif   ( @ARGV )                   { queue(@ARGV); }               # no subcommands but arguments exist; queue up shell command
-else                                { status(); say "\n(run 'bq -h' for help)\n"; }
+else                                { status(); say STDERR "\n(run 'bq -h' for help)\n"; }
                                                                     # no subcommands, no arguments; print status
 #>>>
 
@@ -67,7 +67,7 @@ sub status {
     printf STDERR ( "WARNING! %d jobs queued, but running (%d) < LIMIT (%d)\n", $qc, $db->{running}, $db->{LIMIT} )
       if $qc and $db->{LIMIT} > $db->{running};
 
-    printf "Queue ID: '%s', limit: %d\n", $qid, $db->{LIMIT};
+    printf STDERR "Queue ID: '%s', limit: %d\n", $qid, $db->{LIMIT};
     _printf_n "%7d queued\n",    $qc;
     _printf_n "%7d running\n",   $db->{running};
     _printf_n "%7d unflushed\n", scalar(@d);
@@ -219,13 +219,13 @@ sub limit {
 sub _printf_n {
     my ( $f, $i ) = @_;
     return unless $i;
-    printf $f, $i;
+    printf STDERR $f, $i;
 }
 
 # I don't want to add more to the actual database, so we use the stuff in the *.err files here
 sub _print_commands {
     my @f = @_;    # list of *.err files
-    print "\n";
+    print STDERR "\n";
     for my $f (@f) {
         my ( $cmd, $st ) = ( '', '(q)' );
         open( my $fh, "<", $f ) or next;
