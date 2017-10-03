@@ -109,7 +109,7 @@ sub queue {
     while ( queue_full() or not my_turn() ) {
         db_unlock();
         _log( 1, "[w $$] $sleep_time" );
-        sleep $sleep_time; $sleep_time %= 31; $sleep_time *= 2;
+        sleep $sleep_time; $sleep_time %= 7; $sleep_time *= 2;
         # TODO: the backoff time is hardcoded; may (at some point) need a more sophisticated algorithm
         db_lock();
     }
