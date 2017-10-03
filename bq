@@ -59,6 +59,7 @@ sub _printf_n;
 
 sub status {
     db_lock();
+    say STDERR Dumper $db if $ENV{D};
 
     my @d  = glob("$BASE/d/*.err");                     # we assume count of *.err and *.out is same
     my @r  = glob("$BASE/r/*.err");
