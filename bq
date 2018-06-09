@@ -27,6 +27,7 @@ GetOptions( \%options,
     "limit=i",
     "sleep|s=s",
     "logfile|lf=s",
+    "psck",
 ) or die "option error; maybe a typo or a missing '--' somewhere?\n";
 #>>>
 usage() if $options{help};
@@ -45,6 +46,7 @@ elsif   ( $options{history} )       { history(0); }                 # print hist
 elsif   ( $options{errors} )        { history(1); }                 # print history, failed jobs only
 elsif   ( $options{purge} )         { purge(); }
 elsif   ( exists $options{limit} )  { limit( $options{limit} ); }
+elsif   ( $options{psck} )          { psck(); }
 elsif   ( @ARGV )                   { queue(@ARGV); }               # no subcommands but arguments exist; queue up shell command
 else                                { status(); say STDERR "\n(run 'bq -h' for help)\n"; }
                                                                     # no subcommands, no arguments; print status
@@ -76,6 +78,26 @@ sub status {
 
     # print commands: done-but-errored, running, queued
     _print_commands( @d, @r );
+
+    db_unlock();
+}
+
+sub psck {
+    db_lock();
+
+    my @q = @{ $db->{queued_pids} || [] };
+    return unless @q;
+
+    my @q2;
+    for my $pid (@q) {
+        if ( kill( 0, $pid ) ) {
+            push @q2, $pid;
+        } else {
+            printf STDERR "!! %d dead; run file:\n%s", $pid, `cat $BASE/r/$pid.err`;
+        }
+    }
+
+    $db->{queued_pids} = \@q2;
 
     db_unlock();
 }
