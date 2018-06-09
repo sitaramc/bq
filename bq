@@ -3,8 +3,7 @@ use strict;
 use warnings;
 use 5.10.0;
 use Data::Dumper;
-$Data::Dumper::Terse  = 1;
-$Data::Dumper::Indent = 0;
+$Data::Dumper::Sortkeys = 1;
 
 use Getopt::Long qw(:config require_order);
 use DBM::Deep;
