@@ -213,6 +213,10 @@ sub history {
 }
 
 sub purge {
+    system("bq -f > /dev/null
+            bq -c
+            echo ===================
+            bq -e | tee -a $BASE/errors");
     db_lock();
     if ( $db->{running} ) {
         db_unlock();
