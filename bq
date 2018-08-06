@@ -11,7 +11,14 @@ mkdir -p $TD
 [ -z "$1" ] && { echo "-l N (currently `cat $TD.limit`), -r, command+args"; exit 1; }
 
 __do_1() {
-    ( echo "cd $PWD"; echo "$@" ) > $TD/$$.queued
+    (
+        echo -n "cd $PWD;"
+        for i
+        do
+            [ -z "$i" ] && echo -n ' ""' || echo -n " $i"
+        done
+        echo
+    ) > $TD/$$.queued
     while :
     do
         (
