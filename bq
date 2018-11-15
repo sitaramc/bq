@@ -6,9 +6,12 @@ mkdir -p $TD
 [ -e $TD.limit ] || echo 1 > $TD.limit
 
 [ "$1" = "-l" ] && { echo $2 > $TD.limit; exit 0; }
-[ "$1" = "-r" ] && { exec ranger $TD; }
 
-[ -z "$1" ] && { echo "-l N (currently `cat $TD.limit`), -r, command+args"; exit 1; }
+[ -z "$1" ] && {
+    echo "-l N (currently `cat $TD.limit`), command+args..."
+    read
+    exec ranger --cmd='set column_ratios 1,4' --cmd='map <DELETE> shell rm %s' $TD
+}
 
 __do_1() {
     (
