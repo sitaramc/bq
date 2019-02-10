@@ -112,7 +112,7 @@ For convenience, all files for tasks that have completed successfully, i.e.,
 exitcode was 0, will be moved to a subdirectory called "OK".  This lets you
 clear out all these files in one go if you trust the exitcode and don't need
 to check the actual outputs.  (In ranger, hit enter on the directory, then
-"v", then the "<delete>" key.  Poof!)
+"v", then the "\<delete\>" key.  Poof!)
 
 A task progresses from queued, to running, to done, of course, so the
 *content* of the last 3 files is the same: the working directory for the
