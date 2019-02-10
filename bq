@@ -85,8 +85,8 @@ mkdir -p $QDIR/OK
 
                 # finally...
                 "${cmd[@]}" > $ID.1 2> $ID.2
-                mv $ID.running.$$ $ID.done.$?
-                [ -f $ID.done.0 ] && mv $ID.* $QDIR/OK
+                mv $ID.running.$$ $ID.exitcode=$?
+                [ -f $ID.exitcode=0 ] && mv $ID.* $QDIR/OK
             }
         }
         sleep 2

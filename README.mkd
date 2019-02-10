@@ -59,7 +59,7 @@ apt or dnf install command to get it.  It's pretty powerful and fast!)
 
 ## cleanup
 
-You have to clean up the ".1", ".2", and ".done.N" files yourself.  Bq cannot
+You have to clean up the ".1", ".2", and ".exitcode=N" files yourself.  Bq cannot
 know when you're no longer interested in the output of some long-ago run
 command :)
 
@@ -106,7 +106,7 @@ The "something" could be one of the following:
 *   "1", or "2": stdout and stderr of a running or completed task
 *   "queued": task is waiting to run
 *   "running.12345": task is currently being run, by worker 12345
-*   "done.N": task is done; N is the exit code
+*   "exitcode=N": task is done; N is the exit code
 
 For convenience, all files for tasks that have completed successfully, i.e.,
 exitcode was 0, will be moved to a subdirectory called "OK".  This lets you
