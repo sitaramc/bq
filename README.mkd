@@ -108,11 +108,15 @@ The "something" could be one of the following:
 *   "running.12345": task is currently being run, by worker 12345
 *   "done.N": task is done; N is the exit code
 
-Of the last 3 files above, clearly only one will be seen at any given time (a
-task progresses from queued, to running, to done, of course!)
+For convenience, all files for tasks that have completed successfully, i.e.,
+exitcode was 0, will be moved to a subdirectory called "OK".  This lets you
+clear out all these files in one go if you trust the exitcode and don't need
+to check the actual outputs.  (In ranger, hit enter on the directory, then
+"v", then the "<delete>" key.  Poof!)
 
-Whatever the name, it contains the working directory when the task was
-submitted to the queue, followed by the command arguments, one per line.
+A task progresses from queued, to running, to done, of course, so the
+*content* of the last 3 files is the same: the working directory for the
+command, followed by the command arguments; one per line.
 
 ----
 

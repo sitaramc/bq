@@ -30,7 +30,7 @@ Q=default
     Q=$2; shift; shift
 }
 [ -z "$QDIR" ] && export QDIR=$TMP/bq-$USER-$Q
-mkdir -p $QDIR
+mkdir -p $QDIR/OK
 
 # ----------------------------------------------------------------------
 
@@ -86,6 +86,7 @@ mkdir -p $QDIR
                 # finally...
                 "${cmd[@]}" > $ID.1 2> $ID.2
                 mv $ID.running.$$ $ID.done.$?
+                [ -f $ID.done.0 ] && mv $ID.* $QDIR/OK
             }
         }
         sleep 2
