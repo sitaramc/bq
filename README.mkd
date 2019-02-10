@@ -26,8 +26,9 @@ something that just uses bash is very useful.
     # start a couple of jobs
     bq some long running command
     bq another command  # will run after the previous one completes
-    # examine the output directory at any time (requires "ranger"; see later)
-    bq
+    # examine the output directory at any time
+    bq                              # uses ranger as the file manager
+    export BQ_FILEMANAGER=mc; bq    # env var overrides default
 
 ## workers
 
@@ -55,10 +56,8 @@ directory".  The file names are mostly self-explanatory, and you'll see the
 view changing as commands complete, new ones start, etc.  See the "files in
 the QDIR" section below for more on this if you need.
 
-**NOTE on "ranger"**: I am open to customising what file manager opens up; I
-use ranger so for now I just hardcoded it.  I also think many people use it,
-you should at least give it a shot.  (Most distros have it, so just use your
-apt or dnf install command to get it.  It's pretty powerful and fast!)
+You can override the default of "ranger" by setting `BQ_FILEMANAGER` to the
+file manager of your choice, including any options you need.
 
 ## cleanup
 
@@ -86,9 +85,8 @@ so far.
 
 ## files in the QDIR
 
-When you run `bq` without arguments, ranger will open up on the Q directory,
-which is by default `/dev/shm/bq-$USER-default`.  You'll see several files
-there; an explanation of what they are follows:
+The Q directory, which is by default `/dev/shm/bq-$USER-default`, contains all
+the files that make bq tick.  An explanation of what they are follows:
 
 (Side note: why `/dev/shm`?  I prefer /dev/shm for output files; I assume most
 jobs output is small enough (otherwise you would have redirected it!) I'm more

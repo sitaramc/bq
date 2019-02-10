@@ -18,6 +18,20 @@
 
 die() { echo "$@" >&2; exit 1; }
 
+[ "$1" = "-h" ] && {
+    cat <<-EOF
+	Example usage:
+	    # start a worker
+	    bq -d
+	    # submit a job
+	    bq some-command arg1 arg2 [...]
+	    # check status
+	    bq                              # uses ranger as the file manager
+	    export BQ_FILEMANAGER=mc; bq    # env var overrides default
+	EOF
+    exit 1
+}
+
 # ----------------------------------------------------------------------
 
 TMP=/dev/shm
@@ -33,11 +47,7 @@ Q=default
 mkdir -p $QDIR/OK
 
 # ----------------------------------------------------------------------
-
-# examine the output directory using ranger
-[ -z "$1" ] && {
-    exec ranger --cmd='set column_ratios 2,5' --cmd='map <DELETE> shell rm %s' $QDIR
-}
+# WORKER
 
 # '-s' starts a worker; each worker runs one job at a time, so if you want
 # more jobs to run simultaneously, run this multiple times!
@@ -92,6 +102,12 @@ mkdir -p $QDIR/OK
         sleep 2
     done
 }
+
+# ----------------------------------------------------------------------
+# STATUS
+
+# examine the output directory using $BQ_FILEMANAGER (defaulting to ranger)
+[ -z "$1" ] && exec sh -c "${BQ_FILEMANAGER:-ranger} $QDIR"
 
 # ----------------------------------------------------------------------
 
