@@ -1,52 +1,100 @@
 #!/bin/bash
 
-# TD=$HOME/tmp/bq
-TD=/dev/shm/bq-$USER
-mkdir -p $TD
-[ -e $TD.limit ] || echo 1 > $TD.limit
+# simple task queue; output files are in /dev/shm/bq-$USER.  Uses no locks;
+# use 'mv' command, which is atomic (within the same file system anyway) to
+# prevent contention.
+# ref: https://rcrowley.org/2010/01/06/things-unix-can-do-atomically.html
 
-[ "$1" = "-l" ] && { echo $2 > $TD.limit; exit 0; }
+# run "bq -d" once to start a worker
 
+# run "bq command [args...]" to put commands in queue
+
+# run "bq" to view the output directory using ranger
+
+# see README for more (e.g., using different queues, increasing/decreasing the
+# number of workers in a queue, etc.)
+
+# ----------------------------------------------------------------------
+
+die() { echo "$@" >&2; exit 1; }
+
+# ----------------------------------------------------------------------
+
+TMP=/dev/shm
+[ -d $TMP ] || TMP=/tmp
+
+# I doubt I will ever use multiple Qs, but it's easy enough to implement
+Q=default
+[ "$1" = "-q" ] && {
+    [ -z "$2" ] && die "-q needs a queue name"
+    Q=$2; shift; shift
+}
+[ -z "$QDIR" ] && export QDIR=$TMP/bq-$USER-$Q
+mkdir -p $QDIR
+
+# ----------------------------------------------------------------------
+
+# examine the output directory using ranger
 [ -z "$1" ] && {
-    echo "-l N (currently `cat $TD.limit`), command+args..."
-    read
-    exec ranger --cmd='set column_ratios 1,4' --cmd='map <DELETE> shell rm %s' $TD
+    exec ranger --cmd='set column_ratios 2,5' --cmd='map <DELETE> shell rm %s' $QDIR
 }
 
-__do_1() {
-    (
-        echo -n "cd $PWD;"
-        for i
-        do
-            [ -z "$i" ] && echo -n ' ""' || echo -n " $i"
-        done
-        echo
-    ) > $TD/$$.queued
+# '-s' starts a worker; each worker runs one job at a time, so if you want
+# more jobs to run simultaneously, run this multiple times!
+[ "$1" = "-d" ] && [ -z "$2" ] && {
+    # daemonize
+    nohup "$0" -d $QDIR &
+    # remind the user how many workers he has started, in case he forgot
+    echo `pgrep -u $USER -fal bq.-d | grep $QDIR | wc -l` workers running
+    exit 0
+}
+
+# the actual worker code
+[ "$1" = "-d" ] && {
+
+    touch $QDIR/.worker.$$.up
+    trap "rm $QDIR/*.running.$$ $QDIR/.worker.$$.up" 0
+
     while :
     do
-        (
-            flock 37
-            limit=`cat $TD.limit`
-            running=`ls $TD/*.running 2>/dev/null | wc -l`
-            running=${running// /}
-            [ $running -lt $limit ] && mv $TD/$$.queued $TD/$$.running
-        ) 37>$TD.lock
+        # get the head of the Q, if any
+        Q=$(ls $QDIR/*.queued 2>/dev/null | head -1)
 
-        [ -e $TD/$$.running ] && break
+        # take the Q item...
+        [ -n "$Q" ] && {
 
-        # not our time to run yet
+            # get its ID and...
+            ID=${Q%.queued}
+            # ..."claim" it by renaming to ourselves.  Note that Unix mv is
+            # atomic within the same filesystem
+            mv $Q $ID.running.$$
+
+            # if the "claim" succeeded...
+            [ -f $ID.running.$$ ] && {
+                # get the command line arguments and run them
+                readarray -t cmd < $ID.running.$$
+
+                # the first line is the directory to be in; shift that out first
+                newpwd="${cmd[0]}"
+                cmd=("${cmd[@]:1}")
+                # the directory may have disappeared between submitting the
+                # job and running it now.  Catch that by trying to cd to it
+                cd "$newpwd" || cmd=(cd "$newpwd")
+                # (we do that by simply replacing the actual command with a
+                # "cd"; this produces the same error we want in ".2"
+
+                # finally...
+                "${cmd[@]}" > $ID.1 2> $ID.2
+                mv $ID.running.$$ $ID.done.$?
+            }
+        }
         sleep 2
     done
-
-    "$@" < /dev/null > $TD/$$.f1 2> $TD/$$.f2 || echo $? > $TD/$$.exitcode
-
-    # no lock needed to delete our own file (at worst the next job will wait # one more 'wait' cycle)
-    mv $TD/$$.running $TD/$$.c
-
-    # errored out?  bring those files up to the top!
-    [ -f $TD/$$.exitcode ] && rename $$ .$$ $TD/$$.*
 }
 
-( ( __do_1 "$@" ) & )
+# ----------------------------------------------------------------------
 
-exit 0
+# some command was given; add it to the queue
+ID=`date +%s`.$$.${1//[^a-z0-9_.-]/}
+pwd                 > $QDIR/$ID.queued
+printf "%s\n" "$@" >> $QDIR/$ID.queued

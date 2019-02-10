@@ -1,16 +1,129 @@
-# bq -- batch queue
+# bq -- simple batch queueing command
 
-The previous version (moved to the "archived" directory) was still way too
-complex for what I needed.  More important, jobs would occasionally die -- and
+This is now, effectively, version 3 of my "batch queue" command.  See the
+"history" section at the bottom for details.
+
+Usage is very simple, and should fit all those posts I saw where people
+appeared to want exactly this, but were being directed to "batch" (which won't
+queue), or told to use a semicolon (seriously!), and so on.
+
+The **only** package that really fits the bill for all those needs is
+task-spooler, which, according to `rpm -qi task-spooler` on my system, is at
+<http://vicerveza.homeunix.net/~viric/soft/ts>.  It is much more powerful than
+this program, while also being very easy to use.
+
+In fact the only reason I wrote this, despite knowing of task-spooler, is that
+I often work on machines where I am not allowed to install whatever I want, so
+having something that just uses bash is very useful.
+
+## quick overview
+
+    # start a worker
+    bq -d
+    # start a couple of jobs
+    bq some long running command
+    bq another command  # will run after the previous one completes
+    # examine the output directory at any time (requires "ranger"; see later)
+    bq
+
+## workers
+
+`bq -d` starts a worker.  If you want more workers, run it multiple times.  If
+you queue commands without starting a worker, they'll just sit in the queue
+until you start one.
+
+To reduce the number of workers, run `bq exit`.  (We can't kill a worker while
+it's running a task, so we add it to the queue, and the next worker that picks
+up this 'exit' command will... exit!)
+
+## tasks
+
+Start a task by just prefixing the command with "bq":
+
+    bq youtube-dl https://www.youtube.com/watch?v=vohrz14S6JE
+
+If a worker is free it will start running immediately, otherwise it will run
+when a worker becomes free.
+
+## status
+
+Running `bq` without any arguments runs the ranger file manager on the "Q
+directory".  The file names are mostly self-explanatory, and you'll see the
+view changing as commands complete, new ones start, etc.  See the "files in
+the QDIR" section below for more on this if you need.
+
+**NOTE on "ranger"**: I am open to customising what file manager opens up; I
+use ranger so for now I just hardcoded it.  I also think many people use it,
+you should at least give it a shot.  (Most distros have it, so just use your
+apt or dnf install command to get it.  It's pretty powerful and fast!)
+
+## cleanup
+
+You have to clean up the ".1", ".2", and ".done.N" files yourself.  Bq cannot
+know when you're no longer interested in the output of some long-ago run
+command :)
+
+## using a different queue
+
+The default queue is "default".  You can create other queues if you need:
+
+    bq -d                   # start a worker in default queue
+    bq -q net -d            # start a worker in "net" queue
+    bq -q cpu -d            # start a worker in "cpu" queue
+    bq sleep 30             # runs in default queue
+    bq -q net wget ...      # runs in "net" queue
+    bq -q cpu ffmpeg ...    # runs in "cpu" queue
+
+There is no error checking on the name you choose; please use a simple word
+like in the examples.
+
+I must also add that I have never yet *needed* multiple queues.  I do have
+differing needs, but never at the same time, so just the default has sufficed
+so far.
+
+## files in the QDIR
+
+When you run `bq` without arguments, ranger will open up on the Q directory,
+which is by default `/dev/shm/bq-$USER-default`.  You'll see several files
+there; an explanation of what they are follows:
+
+(Side note: why `/dev/shm`?  I prefer /dev/shm for output files; I assume most
+jobs output is small enough (otherwise you would have redirected it!) I'm more
+interested in making sure that this does not touch the disk (cause disk IO, or
+"wake up" the disk if it was asleep), because that's the way I roll!)
+
+**Worker**: for each worker, there is a `.worker.12345.up` file, where 12345
+is the PID.  The file has no content; it's just there so you know how many
+workers there are.
+
+All **task related files** look like `1549791234.23456.ffmpeg.<something>`.
+The first bit is a timestamp (`date +%s`), the next is the PID that submitted
+the job, the third bit is the first word of the command (in our example,
+"ffmpeg").
+
+The "something" could be one of the following:
+
+*   "1", or "2": stdout and stderr of a running or completed task
+*   "queued": task is waiting to run
+*   "running.12345": task is currently being run, by worker 12345
+*   "done.N": task is done; N is the exit code
+
+Of the last 3 files above, clearly only one will be seen at any given time (a
+task progresses from queued, to running, to done, of course!)
+
+Whatever the name, it contains the working directory when the task was
+submitted to the queue, followed by the command arguments, one per line.
+
+----
+
+# appendix: history
+
+What I will call "version 1" (which is in the "archived" directory) was way
+too complex for my needs.  More important, jobs would occasionally die -- and
 I never managed to debug that.
 
-The current `bq` is a far simpler script.  It does a lot less -- for example
-it skips all the stuff about monitoring jobs etc. (you can do that by opening
-a file manager on the directory containing all the files used by `bq`).
-
-Ranger tip: hit "om" (order by mtime) and, as jobs start, run, produce output,
-exit, etc., those files will float to the top of the ranger file manager's
-file list.
-
-Watch out for any files ending with "exitcode"; it means that job had a
-non-zero exit code.
+"Version 2" was a total rewrite, much simpler, but it too was very shortlived.
+Mainly, the queue would not survive reboots, plus if you added lots of jobs,
+you may even hit per-user process limits (actually, more likely file
+descriptors).  Basically, the idea of worker-less queueing doesn't seem to
+work very well, even for my simple needs.
