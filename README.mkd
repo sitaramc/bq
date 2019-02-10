@@ -3,18 +3,21 @@
 This is now, effectively, version 3 of my "batch queue" command.  See the
 "history" section at the bottom for details.
 
+Installation is trivial; it's just one shell script -- copy it somewhere in
+PATH and you're good to go.
+
 Usage is very simple, and should fit all those posts I saw where people
 appeared to want exactly this, but were being directed to "batch" (which won't
 queue), or told to use a semicolon (seriously!), and so on.
 
-The **only** package that really fits the bill for all those needs is
+The **only** tool that really fits the bill for all those needs is
 task-spooler, which, according to `rpm -qi task-spooler` on my system, is at
 <http://vicerveza.homeunix.net/~viric/soft/ts>.  It is much more powerful than
 this program, while also being very easy to use.
 
-In fact the only reason I wrote this, despite knowing of task-spooler, is that
-I often work on machines where I am not allowed to install whatever I want, so
-having something that just uses bash is very useful.
+The only reason I wrote this, despite knowing of task-spooler, is that I often
+work on machines where I am not allowed to install whatever I want, so having
+something that just uses bash is very useful.
 
 ## quick overview
 
@@ -111,8 +114,7 @@ The "something" could be one of the following:
 For convenience, all files for tasks that have completed successfully, i.e.,
 exitcode was 0, will be moved to a subdirectory called "OK".  This lets you
 clear out all these files in one go if you trust the exitcode and don't need
-to check the actual outputs.  (In ranger, hit enter on the directory, then
-"v", then the "\<delete\>" key.  Poof!)
+to check the actual outputs.
 
 A task progresses from queued, to running, to done, of course, so the
 *content* of the last 3 files is the same: the working directory for the
