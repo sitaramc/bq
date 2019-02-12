@@ -5,7 +5,7 @@
 # prevent contention.
 # ref: https://rcrowley.org/2010/01/06/things-unix-can-do-atomically.html
 
-# run "bq -d" once to start a worker
+# run "bq -w" once to start a worker
 
 # run "bq command [args...]" to put commands in queue
 
@@ -22,7 +22,7 @@ die() { echo "$@" >&2; exit 1; }
     cat <<-EOF
 	Example usage:
 	    # start a worker
-	    bq -d
+	    bq -w
 	    # submit a job
 	    bq some-command arg1 arg2 [...]
 	    # check status
@@ -33,6 +33,7 @@ die() { echo "$@" >&2; exit 1; }
 }
 
 # ----------------------------------------------------------------------
+# SETUP
 
 TMP=/dev/shm
 [ -d $TMP ] || TMP=/tmp
@@ -44,63 +45,108 @@ Q=default
     Q=$2; shift; shift
 }
 [ -z "$QDIR" ] && export QDIR=$TMP/bq-$USER-$Q
+mkdir -p $QDIR/w
+mkdir -p $QDIR/q
 mkdir -p $QDIR/OK
 
-# ----------------------------------------------------------------------
-# WORKER
+_exit=0     # as long as this is 0, the main loop will keep running
 
-# '-s' starts a worker; each worker runs one job at a time, so if you want
+# ----------------------------------------------------------------------
+# WORK 1 TASK
+
+_work_1() {
+    ID=$1
+
+    # "claim" the task in q by renaming q/$ID to a name that contains our
+    # own PID.  Unix mv is atomic within the same filesystem, so this
+    # prevents contention among multiple workers.
+    mv q/$ID $ID.running.$$
+
+    # if the "claim" succeeded, we got the task
+    if [ -f $ID.running.$$ ]
+    then
+        # get the command line arguments and run them
+        readarray -t cmd < $ID.running.$$
+
+        # the first line is the directory to be in; shift that out first
+        newpwd="${cmd[0]}"
+        cmd=("${cmd[@]:1}")
+
+        # handle "exit"
+        if [ "${cmd[0]}" = "exit" ]
+        then
+            rm $ID.running.$$
+            _exit=1     # signal the main loop we're done
+            return
+        fi
+
+        # log the command for debugging later
+        echo -n "cd $newpwd; ${cmd[@]}" >> w/$$
+
+        # the directory may have disappeared between submitting the
+        # job and running it now.  Catch that by trying to cd to it
+        cd "$newpwd" || cmd=(cd "$newpwd")
+        # if the cd failed, we simply replace the actual command with
+        # the same "cd", and let it run and catch the error.  Bit of a
+        # subterfuge, actually, but it works fine.
+
+        # finally we run the task.  Note that our PWD now is NOT $QDIR, so
+        # the two redirected filenames have to be fully qualified
+        "${cmd[@]}" > $QDIR/$ID.1 2> $QDIR/$ID.2
+        ec=$?
+
+        cd $QDIR
+        mv $ID.running.$$ $ID.exitcode=$ec
+        [ "$ec" = "0" ] && mv $ID.* OK
+        echo " # $ec" >> w/$$
+    fi
+}
+
+# ----------------------------------------------------------------------
+# START AND DAEMONISE A WORKER
+
+# '-w' starts a worker; each worker runs one job at a time, so if you want
 # more jobs to run simultaneously, run this multiple times!
-[ "$1" = "-d" ] && [ -z "$2" ] && {
+[ "$1" = "-w" ] && [ -z "$2" ] && {
     # daemonize
-    nohup "$0" -d $QDIR &
+    nohup "$0" -w $QDIR &
+
     # remind the user how many workers he has started, in case he forgot
-    echo `pgrep -u $USER -fal bq.-d | grep $QDIR | wc -l` workers running
+    sleep 0.5   # wait for the other task to kick off
+    echo `cd $QDIR/w; ls | grep -v exited | wc -l` workers running
     exit 0
 }
 
-# the actual worker code
-[ "$1" = "-d" ] && {
+# ----------------------------------------------------------------------
+# WORKER LOOP
 
-    touch $QDIR/.worker.$$.up
-    trap "rm $QDIR/*.running.$$ $QDIR/.worker.$$.up" 0
+[ "$1" = "-w" ] && {
 
-    while :
+    touch $QDIR/w/$$
+    trap "mv $QDIR/w/$$ $QDIR/w/$$.exited" 0
+
+    while [ "$_exit" = "0" ]
     do
-        # get the head of the Q, if any
-        Q=$(ls $QDIR/*.queued 2>/dev/null | head -1)
+        cd $QDIR
 
-        # take the Q item...
-        [ -n "$Q" ] && {
+        # if nothing is waiting in q, go to sleep, but using inotifywait so
+        # you get woken up immediately if a new task lands
+        [ -z "`cd q; ls`" ] && inotifywait -t 60 -e create q >/dev/null
+        # note there is still a bit of a race here.  If tasks were submitted
+        # *between* the 2 pieces of the above code, they will end up waiting
+        # 60 seconds before they get picked up.  Hopefully that's a corner
+        # case, and anyway at worst it only causes a delay.
 
-            # get its ID and...
-            ID=${Q%.queued}
-            # ..."claim" it by renaming to ourselves.  Note that Unix mv is
-            # atomic within the same filesystem
-            mv $Q $ID.running.$$
-
-            # if the "claim" succeeded...
-            [ -f $ID.running.$$ ] && {
-                # get the command line arguments and run them
-                readarray -t cmd < $ID.running.$$
-
-                # the first line is the directory to be in; shift that out first
-                newpwd="${cmd[0]}"
-                cmd=("${cmd[@]:1}")
-                # the directory may have disappeared between submitting the
-                # job and running it now.  Catch that by trying to cd to it
-                cd "$newpwd" || cmd=(cd "$newpwd")
-                # (we do that by simply replacing the actual command with a
-                # "cd"; this produces the same error we want in ".2"
-
-                # finally...
-                "${cmd[@]}" > $ID.1 2> $ID.2
-                mv $ID.running.$$ $ID.exitcode=$?
-                [ -f $ID.exitcode=0 ] && mv $ID.* $QDIR/OK
-            }
-        }
-        sleep 2
+        # pick up all tasks in q and run them.  Note that there may not be any
+        # (the inotifywait may have exited on timeout rather than on a create
+        # event) but that's fine too
+        for ID in $(cd q; ls)
+        do
+            _work_1 $ID
+        done
     done
+
+    exit 0
 }
 
 # ----------------------------------------------------------------------
@@ -113,5 +159,5 @@ mkdir -p $QDIR/OK
 
 # some command was given; add it to the queue
 ID=`date +%s`.$$.${1//[^a-z0-9_.-]/}
-pwd                 > $QDIR/$ID.queued
-printf "%s\n" "$@" >> $QDIR/$ID.queued
+pwd                 > $QDIR/q/$ID
+printf "%s\n" "$@" >> $QDIR/q/$ID
