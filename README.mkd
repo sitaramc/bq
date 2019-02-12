@@ -30,6 +30,10 @@ something that just uses bash is very useful.
     bq                              # uses ranger as the file manager
     export BQ_FILEMANAGER=mc; bq    # env var overrides default
 
+    # you can only run one simple command; if you have a command with shell
+    # meta characters (;, &, &&, ||, >, <, etc), do this:
+    bq bash -c 'echo hello; echo there >junk.$RANDOM'
+
 ## workers
 
 `bq -w` starts a worker.  If you want more workers, run it multiple times.  If

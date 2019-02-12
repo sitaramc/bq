@@ -28,6 +28,9 @@ die() { echo "$@" >&2; exit 1; }
 	    # check status
 	    bq                              # uses ranger as the file manager
 	    export BQ_FILEMANAGER=mc; bq    # env var overrides default
+	    # you can only run one simple command; if you have a command with
+	    # shell meta characters (;, &, &&, ||, >, <, etc), do this:
+	    bq bash -c 'echo hello; echo there >junk.\$RANDOM'
 	EOF
     exit 1
 }
