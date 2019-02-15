@@ -7,7 +7,7 @@
 
 # run "bq -w" once to start a worker
 
-# run "bq command [args...]" to put commands in queue
+# run "bq command [args...]" to put tasks in queue
 
 # run "bq" to view the output directory using ranger
 
@@ -52,20 +52,16 @@ mkdir -p $QDIR/w
 mkdir -p $QDIR/q
 mkdir -p $QDIR/OK
 
-_exit=0     # as long as this is 0, the main loop will keep running
-
 # ----------------------------------------------------------------------
 # WORK 1 TASK
 
 _work_1() {
     ID=$1
 
-    # "claim" the task in q by renaming q/$ID to a name that contains our
-    # own PID.  Unix mv is atomic within the same filesystem, so this
-    # prevents contention among multiple workers.
-    mv q/$ID $ID.running.$$
+    # "claim" the task in q by renaming q/$ID to a name that contains our own PID
+    mv q/$ID $ID.running.$$ 2>/dev/null
 
-    # if the "claim" succeeded, we got the task
+    # if the "claim" succeeded, we won the race to run the task
     if [ -f $ID.running.$$ ]
     then
         # get the command line arguments and run them
@@ -74,14 +70,6 @@ _work_1() {
         # the first line is the directory to be in; shift that out first
         newpwd="${cmd[0]}"
         cmd=("${cmd[@]:1}")
-
-        # handle "exit"
-        if [ "${cmd[0]}" = "exit" ]
-        then
-            rm $ID.running.$$
-            _exit=1     # signal the main loop we're done
-            return
-        fi
 
         # log the command for debugging later
         echo -n "cd $newpwd; ${cmd[@]}" >> w/$$
@@ -111,6 +99,10 @@ _work_1() {
 # '-w' starts a worker; each worker runs one job at a time, so if you want
 # more jobs to run simultaneously, run this multiple times!
 [ "$1" = "-w" ] && [ -z "$2" ] && {
+
+    # if the user is starting a worker, any existing kill commands don't apply
+    rm -f $QDIR/q/0.*.-k
+
     # daemonize
     nohup "$0" -w $QDIR &
 
@@ -121,35 +113,57 @@ _work_1() {
 }
 
 # ----------------------------------------------------------------------
+# STOP A WORKER
+
+[ "$1" = "-k" ] && [ -z "$2" ] && {
+    touch $QDIR/q/0.$$.-k
+    # starting with a "0" assures that in an "ls" this file will come before
+    # any normal task files (which all start with `date +%s`).  The contents
+    # don't matter, since it won't be "executed" in the normal manner.
+    exit 0
+}
+
+# ----------------------------------------------------------------------
 # WORKER LOOP
 
 [ "$1" = "-w" ] && {
 
     touch $QDIR/w/$$
-    trap "mv $QDIR/w/$$ $QDIR/w/$$.exited" 0
 
-    while [ "$_exit" = "0" ]
+    while :
     do
         cd $QDIR
 
-        # if nothing is waiting in q, go to sleep, but using inotifywait so
-        # you get woken up immediately if a new task lands
-        [ -z "`cd q; ls`" ] && inotifywait -t 60 -e create q >/dev/null
-        # note there is still a bit of a race here.  If tasks were submitted
-        # *between* the 2 pieces of the above code, they will end up waiting
-        # 60 seconds before they get picked up.  Hopefully that's a corner
-        # case, and anyway at worst it only causes a delay.
+        ID=`cd q; ls | head -1`
+        # if nothing is waiting in q, go to sleep, but use inotifywait so you
+        # get woken up immediately if a new task lands
+        [ -z "$ID" ] && {
+            inotifywait -q -t 60 -e create q >/dev/null
+            continue
+            # whether we got an event or just timed out, we just go back round
+        }
 
-        # pick up all tasks in q and run them.  Note that there may not be any
-        # (the inotifywait may have exited on timeout rather than on a create
-        # event) but that's fine too
-        for ID in $(cd q; ls)
-        do
-            _work_1 $ID
-        done
+        # note there is still a bit of a race here.  If tasks were submitted
+        # *between* the "ID=" and the "inotifywait" above, they will end up
+        # waiting 60 seconds before they get picked up.  Hopefully that's a
+        # corner case, and anyway at worst it only causes a delay.
+
+        # handle exit, again using the "mv is atomic" principle
+        [[ $ID == 0.*.-k ]] && {
+            mv q/$ID $ID.exiting
+            [ -f     $ID.exiting ] && {
+                mv w/$$ w/$$.exited
+                rm $ID.exiting
+                exit 0
+            }
+        }
+
+        # ok there was at least one task waiting; try to "work" it
+        _work_1 $ID
     done
 
-    exit 0
+    # we should never get here
+    touch $QDIR/worker.$$.unexpected-error
 }
 
 # ----------------------------------------------------------------------

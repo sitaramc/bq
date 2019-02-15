@@ -40,9 +40,11 @@ something that just uses bash is very useful.
 you queue commands without starting a worker, they'll just sit in the queue
 until you start one.
 
-To reduce the number of workers, run `bq exit`.  (We can't kill a worker while
-it's running a task, so we add it to the queue, and the next worker that picks
-up this 'exit' command will... exit!)
+To reduce the number of workers, run `bq -k`.  The next worker that comes
+round looking for a task to run will exit, reducing the worker count by 1.
+
+You can stop the queue by stopping all the workers.  Tasks still in queue will
+be picked up when you start a worker again.
 
 ## tasks
 
