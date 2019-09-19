@@ -9,7 +9,7 @@
 
 # run "bq command [args...]" to put tasks in queue
 
-# run "bq" to view the output directory using ranger
+# run "bq" to view the output directory using vifm, unless $BQ_FILEMANAGER is set
 
 # see README for more (e.g., using different queues, increasing/decreasing the
 # number of workers in a queue, etc.)
@@ -26,7 +26,7 @@ die() { echo "$@" >&2; exit 1; }
 	    # submit a job
 	    bq some-command arg1 arg2 [...]
 	    # check status
-	    bq                              # uses ranger as the file manager
+	    bq                              # uses vifm as the file manager
 	    export BQ_FILEMANAGER=mc; bq    # env var overrides default
 	    # you can only run one simple command; if you have a command with
 	    # shell meta characters (;, &, &&, ||, >, <, etc), do this:
@@ -169,8 +169,8 @@ _work_1() {
 # ----------------------------------------------------------------------
 # STATUS
 
-# examine the output directory using $BQ_FILEMANAGER (defaulting to ranger)
-[ -z "$1" ] && exec sh -c "${BQ_FILEMANAGER:-ranger} $QDIR"
+# examine the output directory using $BQ_FILEMANAGER (defaulting to vifm)
+[ -z "$1" ] && exec sh -c "${BQ_FILEMANAGER:-vifm} $QDIR"
 
 # ----------------------------------------------------------------------
 

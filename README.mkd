@@ -27,7 +27,7 @@ something that just uses bash is very useful.
     bq some long running command
     bq another command  # will run after the previous one completes
     # examine the output directory at any time
-    bq                              # uses ranger as the file manager
+    bq                              # uses vifm as the file manager
     export BQ_FILEMANAGER=mc; bq    # env var overrides default
 
     # you can only run one simple command; if you have a command with shell
@@ -57,12 +57,12 @@ when a worker becomes free.
 
 ## status
 
-Running `bq` without any arguments runs the ranger file manager on the "Q
+Running `bq` without any arguments runs the vifm file manager on the "Q
 directory".  The directory and file names are mostly self-explanatory, and
 you'll see the view changing as commands complete, new ones start, etc.  See
 the "files in the QDIR" section below for more on this if you need.
 
-You can override the default of "ranger" by setting `BQ_FILEMANAGER` to the
+You can override the default of "vifm" by setting `BQ_FILEMANAGER` to the
 file manager of your choice, including any options you need.
 
 ## cleanup
